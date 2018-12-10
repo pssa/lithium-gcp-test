@@ -1,0 +1,7 @@
+eureka:
+  datacenter: GCPTEST
+  environment: lithium
+  client:
+    register-with-eureka: true
+    serviceUrl:
+      defaultZone: http://server-eureka-0:8080/eureka/,http://server-eureka-1:8080/eureka/,http://server-eureka-2:8080/eureka/

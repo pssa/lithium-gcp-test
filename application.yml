@@ -1,0 +1,181 @@
+# This configuration will be imported by all applications, and should be used
+# carefully for any global configurations. 
+# See http://docs.spring.io/spring-boot/docs/current/reference/html/common-application-properties.html
+
+hystrix:
+  command:
+    default:
+      execution:
+        isolation:
+          # This really should be THREAD, otherwise timeouts won't happen, but because hystrix is not at this time
+          # able to propagate a spring security context to a worker thread, and thus authentication between rest clients fail,
+          # we have no choice but to run the hystrix command on the same thread as the caller.
+          # See - https://github.com/spring-cloud/spring-cloud-netflix/pull/1093
+          # and - https://github.com/spring-cloud/spring-cloud-security/issues/89
+          # A workaround might be possible via https://jfconavarrete.wordpress.com/2014/09/15/make-spring-security-context-available-inside-a-hystrix-command/
+          # but for now I am running with SEMAPHORE in the hopes that the merge above happens soon.
+          strategy: SEMAPHORE
+          semaphore:
+            maxConcurrentRequests: 1000
+          thread:
+            timeoutInMilliseconds: 61000
+            
+eureka:
+  datacenter: DONIRA
+  environment: lithium
+  client:
+    register-with-eureka: true
+    serviceUrl:
+      defaultZone: http://server-eureka:8080/eureka/
+  instance:
+    leaseExpirationDurationInSeconds: 30
+    preferIpAddress: true
+lithium:
+  gateway-public-url: https://TO_BE_DETERMINED
+  metrics:
+    graphite-host: carbon-relay-ng.origin-metrics.svc.cluster.local
+    graphite-seconds-between-sends: 60
+    enable-console-reporter: false
+  system:
+    auth:
+      token-url: http://server-oauth2:8080/oauth/token
+  services:
+    db:
+      load-test-data: false
+    mail:
+      from: Norgeslotteriet <noreply@norgeslotteriet.com>
+      bcc: ""
+      processing-job-cron: "*/5 * * * * *"
+      processing-job-page-size: 10
+    cashier:
+      transaction-geo-device-labels:
+        enabled: true
+      transaction-extra-fields-in-milliseconds: 300000
+    casino:
+      transaction-geo-device-labels:
+        enabled: true
+    machine:
+      graphite-base-url: http://devops-graphite.origin-metrics.TO_BE_DETERMINED
+  service:
+    casino:
+      winnerfeed:
+        wincents:
+          threshold: 1
+    cashier:
+      rest-template-connect-timeout-in-milliseconds: 30000
+      rest-template-read-timeout-in-milliseconds: 30000
+    geo:
+      max-mind-update-enabled: true
+      max-mind-update-cron: 0 * * * * *
+      max-mind-city-db-url: http://geolite.maxmind.com/download/geoip/database/GeoLiteCity.dat.gz
+      max-mind-city-db-path: /tmp/GeoLiteCity.dat
+      max-mind-city-db-age-before-refresh: 604800000 # 7 days
+      geo-names-update-enabled: true
+      geo-names-update-cron: 0 * * * * *
+      geo-names-all-countries-url: http://download.geonames.org/export/dump/allCountries.zip
+      geo-names-all-countries-path: /tmp/geonames_allcountries.txt
+      geo-names-country-info-url: http://download.geonames.org/export/dump/countryInfo.txt
+      geo-names-country-info-path: /tmp/geonames_countryinfo.txt
+      geo-names-admin1-url: http://download.geonames.org/export/dump/admin1CodesASCII.txt
+      geo-names-admin1-path: /tmp/geonames_admin1.txt
+      geo-names-admin2-url: http://download.geonames.org/export/dump/admin2Codes.txt
+      geo-names-admin2-path: /tmp/geonames_admin2.txt
+      geo-names-age-before-refresh: 604800000 # 7 days
+      services:
+        min-city-population: 0
+    accounting:
+      provider:
+        internal:
+          jobs:
+            summaries:
+#              cron: "0 0 5 31 3 *"
+              cron: "*/10 * * * * *"
+          services:
+            maxTranToProcess: 500
+spring:
+  resources:
+    cache-period: 120
+  rabbitmq:
+#    host: rabbitmq
+     host: rabbitmq-cluster-balancer.rabbitmq-cluster.svc.cluster.local
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  cloud:
+    cluster:
+      hazelcast:
+        config-location: classpath:lithium/common/hazelcast-cluster.xml
+  mail:
+    host: smtp.domeneshop.no
+    username: norgeslotteriet2
+    password: brems-Tun-kjem-Tape-1999
+      
+management:
+  health:
+    mail:
+      enabled: false
+  port: 7000
+  shell:
+    ssh:
+      enabled: true
+      port: 9200
+    auth:
+      type: simple
+      simple:
+        user:
+          name: admin
+          password: Gauteng
+    
+server:
+    port: 8080
+      
+#ribbon configs for individual feign services
+service-accounting:
+  ribbon:
+      ReadTimeout: 10000
+      ConnectTimeout: 250
+      OkToRetryOnAllOperations: true
+      MaxAutoRetriesNextServer: 2
+      MaxAutoRetries: 0
+      
+service-accounting-provider-internal:
+  ribbon:
+      ReadTimeout: 10000
+      ConnectTimeout: 250
+      OkToRetryOnAllOperations: true
+      MaxAutoRetriesNextServer: 2
+      MaxAutoRetries: 0
+
+service-report-player-trans:
+  ribbon:
+    ReadTimeout: 600000
+    ConnectTimeout: 500
+
+#default ribbon timeouts
+ribbon:
+  ReadTimeout: 600000
+  ConnectTimeout: 250
+
+hystrix.command.default.execution.isolation.thread.timeoutInMilliseconds: 600000
+
+logging:
+  level:
+    feign: INFO
+    com.netflix.ribbon: INFO
+    lithium.service.casino.controllers: INFO
+    lithium.service.cashier.machine: DEBUG
+    lithium.service.cashier.processor.http: DEBUG
+    lithium.service.cashier.processor.upay.util: DEBUG
+    lithium.service.accounting.provider.internal.jobs: DEBUG
+    lithium.service.accounting.provider.internal.services: WARN
+    lithium.service.accounting.provider.internal.services.SummaryDomainService: INFO
+    lithium.service.cashier.scheduled: DEBUG
+#    lithium.service.games: DEBUG
+#    ROOT: WARN
+#    lithium: INFO
+#    org.springframework.cloud.sleuth: ERROR
+
+# Disable client checks against config server
+health:
+  config:
+    enabled: false
